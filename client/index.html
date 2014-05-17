@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en" ng-app>
+  <head>
+    <title>Open Playlist</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css">
+    
+    <style>
+        body {
+          padding-top: 50px;
+          padding-bottom: 20px;
+          font-size:12px;
+        }
+        .chat-scroll{
+            overflow: auto;
+            height:300px;
+        }
+        .chat-list{
+            padding:2px;
+            border-bottom-style:solid;
+            border-bottom-width:1px;
+            border-bottom-color:#ddd;
+            margin:3px;
+        }
+        .input-group{
+            margin-left:20px;
+            margin-right:15px;
+            margin-top:10px;
+        }
+
+        
+        div#users-contain { width: 350px; margin: 20px 0; }
+    div#users-contain table { margin: 1em 0; border-collapse: collapse; width: 100%; }
+    div#users-contain table td, div#users-contain table th { border: 1px solid #eee; padding: .6em 10px; text-align: left; }
+    .ui-dialog .ui-state-error { padding: .3em; }
+    .validateTips { border: 1px solid transparent; padding: 0.3em; }
+    
+    .ui-dialog-titlebar-close {
+  visibility: hidden;
+}
+    </style>
+    <script>
+
+        
+        var login = '';
+        var all_links = [];
+        var youtubeplayer = document.getElementById("youtubeplayer");
+        
+      function ChatController($scope) {
+        var socket = io.connect();
+
+        $scope.messages = [];
+        $scope.roster = [];
+        $scope.name = '';
+        $scope.text = '';
+
+        socket.on('connect', function () {
+          $scope.setName();
+        });
+
+        socket.on('message', function (msg) {
+          $scope.messages.push(msg);
+          $scope.$apply();
+        });
+
+        socket.on('roster', function (names) {
+          $scope.roster = names;
+          $scope.$apply();
+        });
+
+        $scope.send = function send() {
+          console.log('Sending message:', $scope.text);
+          socket.emit('message', $scope.text);
+          $scope.text = '';
+        };
+
+        $scope.setName = function setName() {
+          socket.emit('identify', $scope.name);
+          login = $scope.name;
+        };
+      }
+      
+      function LinksController($scope, $http) {
+        var socket = io.connect();
+
+        $scope.links = [];
+        $scope.logs = [];
+        $scope.name = '';
+        $scope.link = '';
+
+        socket.on('track', function (lnk) {
+          console.log('Getting track:', lnk.title);
+          $scope.links.push(lnk);
+          $scope.$apply();
+          //document.getElementById("youtubeplayer").cuePlaylist([lnk.youtubeid],0,0,"medium")
+          
+        });
+        
+        socket.on('updateTrack', function (lnk) {
+          $scope.links = lnk;
+          $scope.$apply();
+        });
+        
+        socket.on('history', function (log) {
+          $scope.logs.push(log);
+          $scope.$apply();
+        });
+
+        $scope.send = function send() {
+          console.log(login+' added a track');
+          var youtubeid = YouTubeGetID($scope.link);
+          var url = 'http://gdata.youtube.com/feeds/api/videos/'+youtubeid+'?v=2&alt=jsonc';
+          
+          $.getJSON(url, function(data) {
+            var title = data.data.title;
+            var thumbnail = data.data.thumbnail.sqDefault;
+            var duration = convertDuration( data.data.duration );
+            var rating = data.data.rating;
+            var viewCount = data.data.viewCount;
+            
+            track = {'youtubeid':youtubeid,'title':title,'thumbnail':thumbnail, 'duration':duration, 'rating':rating, viewCount:'viewCount','user':login}
+          
+            console.log('Sending track:', title);
+            socket.emit('track', track);
+          });
+         
+          $scope.link = '';
+        };
+        
+      }
+      function PlayerController($scope) {
+          var socket = io.connect();
+          
+          socket.on('playing', function (playing) {
+                $scope.title = playing.title;
+                $scope.user = playing.user;
+                $scope.rating = playing.rating;
+                $scope.duration = playing.duration;
+                $scope.id = playing.youtubeid;
+                $scope.$apply();
+          });
+          
+          
+          
+          socket.on('playbutton', function (playbutton) {
+                $scope.test = playbutton;
+                if(playbutton.action == 'play'){
+                    document.getElementById("youtubeplayer").pauseVideo();
+                    button = 'play';
+                }else if(playbutton.action == 'pause'){
+                    document.getElementById("youtubeplayer").playVideo();
+                    button = 'pause';
+                }else if(playbutton.action == 'skip'){
+                    document.getElementById("youtubeplayer").loadVideoById(playbutton.track.youtubeid, 0, "medium");
+                    button = 'play';
+                }else{
+                    button = 'play';
+                }
+                
+                $scope.playbutton = button;
+                $scope.$apply();
+          });
+        
+          $scope.update = function update() {
+                console.log(login+' is getting back in the playist');
+                document.getElementById("youtubeplayer").loadVideoById($scope.id, 0, "medium");
+          }
+        
+          $scope.play = function play() {
+                console.log(login+' pushed play');
+                socket.emit('play', login);
+          }
+
+          $scope.skip = function skip(from) {
+                console.log(login+' pushed skip '+$scope.id);
+                socket.emit('skip', {'user':login,'youtubeid':$scope.id, 'from':from} );
+          }
+          
+          $scope.mutebutton = 'Mute';
+          $scope.mute = function mute() {
+              
+              if(document.getElementById("youtubeplayer").isMuted()){
+                  
+                document.getElementById("youtubeplayer").unMute();
+                $scope.mutebutton = 'Mute';
+                
+              }else{
+                  
+                document.getElementById("youtubeplayer").mute();
+                $scope.mutebutton = 'Unmute';
+                
+              }
+          }
+          
+
+      };
+      
+      
+      
+      
+
+      
+      
+      
+        function YouTubeGetID(url){
+            var p = /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;
+            return (url.match(p)) ? RegExp.$1 : false ;
+        }
+        
+        function convertDuration(totalSec){
+
+            var hours = parseInt( totalSec / 3600 ) % 24;
+            var minutes = parseInt( totalSec / 60 ) % 60;
+            var seconds = totalSec % 60;
+            
+            var result = (hours < 10 ? "0" + hours : hours) + "h" + (minutes < 10 ? "0" + minutes : minutes) + "m" + (seconds  < 10 ? "0" + seconds : seconds)+'s';
+            return result;
+        }
+
+    </script>
+    
+  </head>
+  <body>
+    
+    
+    <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Open Playlist</a>
+          
+        </div>
+       <div class="navbar-collapse collapse">
+         
+
+           <!-- <h5 style="color:#fff">23 user(s) online.</h5>-->
+
+
+        </div><!--/.navbar-collapse -->
+      </div>
+    </div>
+
+
+    <!-- Main jumbotron for a primary marketing message or call to action -->
+    <div class="jumbotron">
+      <div class="container" ng-controller="PlayerController" id="player">
+        
+        <div class="row">
+          <div class="col-md-8">
+        
+            <!-- EMBBED PLAYER -->
+                
+            
+            <div id="flashplayer-wrapper" style="">
+              <object type="application/x-shockwave-flash" id="youtubeplayer" data="https://www.youtube.com/apiplayer?video_id=0UZbHyPvMzc&amp;version=3&amp;enablejsapi=1&amp;playerapiid=youtubeplayer" width="640" height="360"><param name="allowScriptAccess" value="always"><param name="bgcolor" value="#cccccc"></object>
+            </div>
+
+    
+            <!-- END EMBBED PLAYER -->
+          </div>
+          <div class="col-md-4">
+          
+            
+                <table class="table table-striped table-bordered">
+                    <tbody>
+                          <tr>
+                            <td class="span7">Playing</td>
+                            <td class="span7">{{title}}</td>
+                          </tr>
+                          <tr>
+                            <td class="span7">From</td>
+                            <td class="span7">{{user}}</td>
+                          </tr>
+                          <tr>
+                            <td class="span7">Duration</td>
+                            <td class="span7">{{duration}}</td>
+                          </tr>
+                          <tr>
+                            <td class="span7">Rating</td>
+                            <td class="span7">{{rating}}</td>
+                          </tr>
+                          <tr>
+                            <td class="span7">Id</td>
+                            <td class="span7">{{id}}</td>
+                          </tr>
+                        </tbody>
+                </table>
+            
+            
+            <div class="btn-group" >
+              <button type="button" class="btn btn-default" ng-click="play()">{{playbutton}}</button>
+              
+              <button type="button" class="btn btn-default" ng-click="skip('user')"  >Skip</button>
+              
+                
+            </div>
+            
+            <p>
+                <br>
+                <button type="button" class="btn btn-default dropdown-toggle" ng-click="mute()">{{mutebutton}}</button><h6>Mute will only affect you.</h6>
+            </p>
+          </div>
+        </div>    
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- Example row of columns -->
+      <div class="row">
+        <div class="col-md-8" ng-controller="LinksController">
+
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs">
+              <li class="active"><a href="#playlist" data-toggle="tab">Playlist</a></li>
+              <li><a href="#history" data-toggle="tab">History</a></li>
+            </ul>
+            
+            <!-- Tab panes -->
+            <div class="tab-content">
+              <div class="tab-pane active" id="playlist">
+              
+                <!-- LINKS START HERE -->
+                
+                <div class="chat-scroll">
+                    <table class="table table-striped table-bordered">
+                    <tbody>
+                          <tr ng-repeat="lnk in links">
+                            <td class="span7" ng-bind="lnk.title"></td>
+                            <td class="span7" ng-bind="lnk.user"></td>
+                            <td class="span7" ng-bind="lnk.time"></td>
+                          </tr>
+                        </tbody>
+                    </table>
+                </div>
+                  <div class="row controls">
+                    <form ng-submit="send()">
+                      <div class="span2"><input type="hidden" id="chat-username" class="form-control" ng-model="name" ng-change="setName()" placeholder="Your Name" ></div>
+                      
+                        <div class="input-group">
+                          <input type="text" class="form-control" ng-model="link" placeholder="Youtube link" >
+                          <span class="input-group-btn">
+                            <input class="btn btn-default" type="submit" value="Add to playlist" ng-disabled="!link" >
+                          </span>
+                        </div><!-- /input-group -->
+                    </form>
+                  </div>
+                <!-- LINKS END HERE -->
+              </div>
+              
+              <div class="tab-pane active" id="history">
+              
+              
+                <!-- History START HERE -->
+                <div class="chat-scroll">
+                    <table class="table table-striped table-bordered">
+                    <tbody>
+                          <tr ng-repeat="log in logs.slice().reverse() ">
+                            <td class="span7" ng-bind="log.message"></td>
+                            <td class="span7" ng-bind="log.user"></td>
+                            <td class="span7" ng-bind="log.time"></td>
+                          </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- History END HERE -->    
+              </div>
+            
+        </div>
+        </div>
+
+        <div class="col-md-4" id ="chat-controller" ng-controller="ChatController">
+        
+        
+            <!--POPUP-->
+    
+            <div id="dialog-form" title="New user">
+              <p>
+                  This is an open playlist where everyone listen to the same thing at the same time.
+                  You can add you favorite tracks from youtube into the playlist area.
+                  Please note that when you click on play/pause and skip it will affect everyone!
+                  But you can mute, this button only affect you.
+                  Enjoy!
+                  
+              </p>
+              
+              <p class="validateTips">What's your name ?</p>
+             
+              <form>
+              <fieldset>
+                <label for="name">Name</label>
+                <input type="text" name="name" id="name" class="text ui-widget-content ui-corner-all" ng-model="name" ng-change="setName()">
+              </fieldset>
+              </form>
+            </div>
+            <!--END POPUP-->
+        
+        
+        
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs">
+              <li class="active"><a href="#chat" data-toggle="tab">Chat</a></li>
+              <li><a href="#users" data-toggle="tab">Users</a></li>
+            </ul>
+            
+            <!-- Tab panes -->
+            <div class="tab-content">
+              <div class="tab-pane active" id="chat">
+              
+                <!-- CHAT START HERE -->
+                
+                <div class="chat-scroll">
+                     <div class="chat-list" ng-repeat="msg in messages.slice().reverse()">
+                        <div>
+                        <strong ng-bind="msg.name"></strong><br>
+                        <span ng-bind="msg.text"></span> 
+                        </div>
+                    </div>
+                </div>
+                  
+                  <div class="row controls">
+                    <form ng-submit="send()">
+                      <div class="span2"><input type="hidden" id="chat-username" class="form-control" ng-model="name" ng-change="setName()" placeholder="Your Name" ></div>
+                      
+                        <div class="input-group">
+                          <input type="text" class="form-control" ng-model="text" placeholder="Message" >
+                          <span class="input-group-btn">
+                            <input class="btn btn-default" type="submit" value="Send" ng-disabled="!text" >
+                          </span>
+                        </div><!-- /input-group -->
+                    </form>
+                  </div>
+                <!-- CHAT END HERE -->
+            </div>
+            
+              <div class="tab-pane" id="users">
+                <!-- USERLIST START HERE -->
+                <table class="table table-striped table-bordered">
+                <tbody>
+                      <tr ng-repeat="user in roster">
+                        <td class="span7" ng-bind="user"></td>
+                      </tr>
+                    </tbody>
+                </table>
+                <!-- USERLIST END HERE -->
+              </div>
+            </div>
+        
+           
+
+        </div>
+      </div>
+
+      <hr>
+
+      <footer>
+        <p>&copy; Nicosalto 2014</p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/jquery.min.js"></script>
+    <script src="//code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/angular.min.js"></script>
+    <script src="/js/dialogName.js"></script>
+    
+    <script>
+        function onYouTubePlayerReady(playerId) {
+            
+              ytplayer = document.getElementById("youtubeplayer");
+              
+              ytplayer.addEventListener("onStateChange", "onytplayerStateChange");
+              
+              //angular.element(document.getElementById("player")).scope().update();
+          }
+            
+          function onytplayerStateChange(newState) {
+              //var socket = io.connect();
+              if(newState == 2){
+                  var scp = angular.element(document.getElementById("player")).scope();
+                    scp.skip('auto');
+                    
+              }
+               //alert("Player's new state: " + newState);
+          }
+          onYouTubePlayerReady('youtubeplayer');
+    </script>
+    
+    <!--<script src="/js/callplayer.js"></script>-->
+    
+  </body>
+</html>
