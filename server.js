@@ -74,8 +74,12 @@ io.on('connection', function (socket) {
     socket.on('track', function (lnk) {
         console.log(lnk);
         lnk.time = getthetime();
-        broadcast('track', lnk);
-        links.push(lnk);
+        if(links.length === 0 && playing == 'none'){
+            playTrack(lnk); // auto play if playlist empty
+        }else{
+            broadcast('track', lnk);
+            links.push(lnk);
+        }
     });
     
     
@@ -134,21 +138,17 @@ io.on('connection', function (socket) {
                 if (data.from == 'user'){
                     broadcast('history', {'message' : ' skipped :'+playing.title ,'time': getthetime(),'user':'users' } ); //add link to history
                 }
-                playbutton = 'pause';
-                broadcast('playbutton', {'action':'skip','track':links[0] }); //change button to pause
                 
-                playing = links[0]; //playing first link of the playlist
+                playTrack(links[0]);
+
                 links.splice(0,1); //removing this link from playlist
-                broadcast('playing', playing);//start playing it
                 broadcast('updateTrack', links);//remove link from playlist
                 
-                votes = {'keep':0,'skip':0, 'users':0}; // clear the voting system
-                voters = []; // clear the voting system
-                broadcast('votes', votes);
-                
-                broadcast('history', {'message' : ' playing :'+playing.title ,'time': getthetime(),'user':'' } ); //add link to history
             }
+        }else{
+            playing = 'none'; //playlist finished playing here
         }
+        
     });
     
     socket.on('identify', function (name) {
@@ -164,7 +164,21 @@ io.on('connection', function (socket) {
     
   });
 
+function playTrack(track){
+    
+    playing = track;
+    
+    playbutton = 'pause';
+    broadcast('playbutton', {'action':'skip','track':playing }); //change button to pause
 
+    broadcast('playing', playing);//start playing it
+    
+    votes = {'keep':0,'skip':0, 'users':0}; // clear the voting system
+    voters = []; // clear the voting system
+    broadcast('votes', votes);
+    
+    broadcast('history', {'message' : ' playing :'+playing.title ,'time': getthetime(),'user':'' } ); //add link to history
+}
         
 function getthetime(){
     var date = new Date();
