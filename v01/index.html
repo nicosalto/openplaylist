@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css">
-    <link rel="stylesheet" href="/css/skipBox.css">
+    
     <style>
         body {
           padding-top: 50px;
@@ -44,10 +44,8 @@
 
         
         var login = '';
-        var users = [];
-        
-        var chat_sound = new Audio('/sounds/hiccup.mp3');
-        var skip_sound = new Audio('/sounds/served.mp3');
+        var all_links = [];
+        var youtubeplayer = document.getElementById("youtubeplayer");
         
       function ChatController($scope) {
         var socket = io.connect();
@@ -64,12 +62,10 @@
         socket.on('message', function (msg) {
           $scope.messages.push(msg);
           $scope.$apply();
-          chat_sound.play();
         });
 
         socket.on('roster', function (names) {
           $scope.roster = names;
-          users = names;
           $scope.$apply();
         });
 
@@ -148,7 +144,6 @@
           
           
           socket.on('playbutton', function (playbutton) {
-                var button = 'play';
                 $scope.test = playbutton;
                 if(playbutton.action == 'play'){
                     document.getElementById("youtubeplayer").pauseVideo();
@@ -178,73 +173,9 @@
           }
 
           $scope.skip = function skip(from) {
-                console.log(login+' pushed skip ');
-                //socket.emit('skip', {'user':login,'youtubeid':$scope.id, 'from':from} );
-                if(from=="user"){
-                    socket.emit('votes', {'user':login,'youtubeid':$scope.id, 'from':from, 'type':'skip'} );
-                    $scope.voting_box = .5;
-                    $scope.$apply();
-                }else if (from=="user"){
-                    socket.emit('skip', {'user':login,'youtubeid':$scope.id, 'from':from} );
-                }
-                
+                console.log(login+' pushed skip '+$scope.id);
+                socket.emit('skip', {'user':login,'youtubeid':$scope.id, 'from':from} );
           }
-          
-          $scope.keep = function keep() {
-                console.log(login+' pushed keep ');
-                socket.emit('votes', {'user':login,'youtubeid':$scope.id, 'type':'keep'} );
-                $scope.voting_box = .5;
-                $scope.$apply();
-          }
-          
-          var loop = '';
-          $scope.seconds = 10;
-          $scope.red_box = 0;
-          
-          socket.on('votes', function (votes) {
-              
-                    
-
-                    
-                $scope.skip_votes = votes.skip;
-                $scope.keep_votes = votes.keep;
-                
-                $scope.arrow_left= (votes.keep === 0) ? 0 : ( (votes.keep / votes.users) < 1) ? (votes.keep / votes.users)*87 : 87;
-                $scope.arrow_right = (votes.skip === 0) ? 0 : ( (votes.skip / votes.users) < 1) ? (votes.skip / votes.users)*87 : 87;
-                
-                if (votes.skip > votes.keep){
-                    
-                    loop=setInterval(function () {
-                        
-                        skip_sound.play();
-                        
-                        $scope.seconds = $scope.seconds -1;
-                        $scope.$apply();
-                        //console.log( $scope.seconds );
-                        if ($scope.seconds === 0){
-                            window.clearInterval(loop);
-                            socket.emit('skip', {'user':login,'youtubeid':$scope.id, 'from':'user'} );
-                            $scope.seconds = 10;
-                            $scope.voting_box = 1;
-                            console.log(' track skipped after '+votes.skip+' votes');
-                        }
-                        },1000);
-                        
-                    $scope.red_box = 1;
-                }else{
-                    window.clearInterval(loop);
-                    $scope.seconds = 10;
-                    $scope.red_box = 0;
-                }
-                
-                //console.log( (votes.keep / votes.users) );
-                
-                $scope.$apply();
-          });
-          
-
-            
-            
           
           $scope.mutebutton = 'Mute';
           $scope.mute = function mute() {
@@ -362,60 +293,11 @@
                 </table>
             
             
-            <div class="btn-group" id="skipBox" >
-            <!-- 
+            <div class="btn-group" >
               <button type="button" class="btn btn-default" ng-click="play()">{{playbutton}}</button>
               
-              <button type="button" class="btn btn-default" ng-click="skip('user')"  >Skip</button> -->
-
-
-              <!--  SKIP BOX START-->
-              <div class="voting_box" ng-style="{opacity: voting_box}">
-                <div class="rating_bottons">
-                    <div class="rating_play">
-                        <a href="#" class="keep_button" ng-click="keep()">Keep playing</a>
-                    </div>
-                    <div class="rating_separator"></div>
-                    <div class="rating_skip">
-                        <a href="#" class="skip_button" ng-click="skip('user')">Skip</a>
-                    </div>
-                </div>
-                
-                <div class="rating_bar" >
-                    <div class="rating_play">
-                        <div class="arrow_box_left" ng-style="{width: arrow_left}"></div>
-                        <div class="corner_box">
-                            <div class="corner_top"></div>
-                            <div class="corner_bottom"></div>
-                        </div>
-                    </div>
-                    <div class="rating_separator"></div>
-                    <div class="rating_skip">
-                        <div class="arrow_box_right" ng-style="{width: arrow_right}"></div>
-                        <div class="corner_box">
-                            <div class="corner_top"></div>
-                            <div class="corner_bottom"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="rating_votes">
-                    <div class="rating_play">
-                        <span id="keep_votes_numbers">{{keep_votes}}</span> vote(s)
-                    </div>
-                    <div class="rating_separator"></div>
-                    <div class="rating_skip">
-                        <span id="skip_votes_numbers">{{skip_votes}}</span> vote(s)
-                    </div>
-                </div>
-            </div>
-            
-            <div class="alert_box" >
-                <div class="skip_box" ng-style="{opacity: red_box}" >
-                    skip in <br><span id="skip_seconds" >{{seconds}}</span> s
-                </div>
-            </div>
-             <!--  SKIP BOX END-->  
+              <button type="button" class="btn btn-default" ng-click="skip('user')"  >Skip</button>
+              
                 
             </div>
             
@@ -560,8 +442,7 @@
                 <!-- USERLIST START HERE -->
                 <table class="table table-striped table-bordered">
                 <tbody>
-               
-                      <tr ng-repeat="user in roster track by $index">
+                      <tr ng-repeat="user in roster">
                         <td class="span7" ng-bind="user"></td>
                       </tr>
                     </tbody>
@@ -586,8 +467,7 @@
     <script src="/js/jquery.min.js"></script>
     <script src="//code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
     <script src="/js/bootstrap.min.js"></script>
-    
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.16/angular.min.js"></script>
+    <script src="/js/angular.min.js"></script>
     <script src="/js/dialogName.js"></script>
     
     <script>
@@ -612,9 +492,7 @@
           onYouTubePlayerReady('youtubeplayer');
     </script>
     
-
-    
     <!--<script src="/js/callplayer.js"></script>-->
-        
+    
   </body>
 </html>
