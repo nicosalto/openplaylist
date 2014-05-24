@@ -184,7 +184,7 @@
                     socket.emit('votes', {'user':login,'youtubeid':$scope.id, 'from':from, 'type':'skip'} );
                     $scope.voting_box = .5;
                     $scope.$apply();
-                }else if (from=="user"){
+                }else if (from=="auto"){
                     socket.emit('skip', {'user':login,'youtubeid':$scope.id, 'from':from} );
                 }
                 
