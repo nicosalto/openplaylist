@@ -85,6 +85,8 @@ io.on('connection', function (socket) {
     
     socket.on('votes', function (vote) {
         
+        
+        
         if (voters.indexOf(vote.user) == -1){
             
             console.log(vote);
@@ -146,7 +148,7 @@ io.on('connection', function (socket) {
                 
             }
         }else{
-            playing = 'none'; //playlist finished playing here
+            //playing = 'none'; //playlist finished playing here
         }
         
     });
