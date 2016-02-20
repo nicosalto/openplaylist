@@ -117,14 +117,16 @@
         $scope.send = function send() {
           console.log(login+' added a track');
           var youtubeid = YouTubeGetID($scope.link);
-          var url = 'http://gdata.youtube.com/feeds/api/videos/'+youtubeid+'?v=2&alt=jsonc';
+          var url = 'https://www.googleapis.com/youtube/v3/videos?id='+youtubeid+'&part=snippet,contentDetails,statistics,status&key=AIzaSyBSruRmRq1VYhSLPp-kOywDdr0qMAXOs-g';
           
           $.getJSON(url, function(data) {
-            var title = data.data.title;
-            var thumbnail = data.data.thumbnail.sqDefault;
-            var duration = convertDuration( data.data.duration );
-            var rating = data.data.rating;
-            var viewCount = data.data.viewCount;
+            console.log(data);
+
+            var title = data.items[0].snippet.title;
+            var thumbnail = "";
+            var duration = data.items[0].snippet.title;
+            var rating = data.items[0].statistics.likeCount;
+            var viewCount =data.items[0].statistics.viewCount;
             
             var track = {'youtubeid':youtubeid,'title':title,'thumbnail':thumbnail, 'duration':duration, 'rating':rating, viewCount:'viewCount','user':login};
           
@@ -136,6 +138,9 @@
         };
         
       }
+      //youtube api key
+      //AIzaSyBSruRmRq1VYhSLPp-kOywDdr0qMAXOs-g
+ 
       function PlayerController($scope) {
           var socket = io.connect();
           
@@ -390,7 +395,7 @@
                             <td class="span7">{{duration}}</td>
                           </tr>
                           <tr>
-                            <td class="span7">Rating</td>
+                            <td class="span7">Likes</td>
                             <td class="span7">{{rating}}</td>
                           </tr>
                           <tr>
